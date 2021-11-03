@@ -1,12 +1,18 @@
 import React, { useState, useEffect } from "react";
 import styled from "styled-components/native";
 import Swiper from "react-native-swiper";
-import { ActivityIndicator, Dimensions, RefreshControl } from "react-native";
+import {
+  ActivityIndicator,
+  Dimensions,
+  FlatList,
+  RefreshControl,
+} from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Slide from "../components/Slide";
 import Poster from "../components/Poster";
+import { useQueryClient, useQuery } from "react-query";
+import { MovieResponse, moviesApi } from "../api";
 
-const API_KEY = "d99e10906e2ee7f3f74c493e0dde192b";
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const Loader = styled.View`
@@ -14,15 +20,16 @@ const Loader = styled.View`
   align-content: center;
   justify-content: center;
 `;
-const Container = styled.ScrollView``;
+const Container = styled.FlatList``;
 const ListTitle = styled.Text`
   color: white;
   font-size: 18px;
   font-weight: 600;
   margin-left: 30px;
+  margin-bottom: 30px;
 `;
 
-const TrendingScroll = styled.ScrollView`
+const TrendingScroll = styled.FlatList`
   margin-top: 20px;
   margin-bottom: 40px;
 `;
@@ -37,7 +44,7 @@ const Title = styled.Text`
   margin-bottom: 5px;
 `;
 
-const UpcomingScroll = styled.ScrollView`
+const UpcomingScroll = styled.FlatList`
   margin-top: 20px;
 `;
 const UpcomingMovie = styled.View`
@@ -57,121 +64,106 @@ const Content = styled.Text`
 `;
 const Release = styled.Text``;
 
-const Movie: React.FC<NativeStackScreenProps<any, "Movie">> = ({
-  navigation: { navigate },
-}) => {
+const Movie: React.FC<NativeStackScreenProps<any, "Movie">> = () => {
+  const queryClient = useQueryClient();
   const isDark = true; //useColorSchema()==="dark";
-  const [loading, setLoading] = useState(true);
-  const [nowPlaying, setNowPlaying] = useState([]);
-  const [upcoming, setUpcoming] = useState([]);
-  const [trending, setTrending] = useState([]);
-  const [refreshing, setRefreshing] = useState(false); // true일때만 로딩표시
-
-  const getTrending = async () => {
-    const { results } = await (
-      await fetch(
-        `https://api.themoviedb.org/3/trending/movie/week?api_key=${API_KEY}`
-      )
-    ).json();
-    setTrending(results);
-  };
-  const getUpcoming = async () => {
-    const response = await fetch(
-      `https://api.themoviedb.org/3/movie/upcoming?api_key=${API_KEY}&language=en-US&page=1&region=KR`
-    );
-    const { results } = await response.json();
-    setUpcoming(results);
-  };
-  const getNowPlaying = async () => {
-    const response = await fetch(
-      `https://api.themoviedb.org/3/movie/now_playing?api_key=${API_KEY}&language=en-US&page=1`
-    );
-    const { results } = await response.json();
-    setNowPlaying(results);
-  };
-
-  const getData = async () => {
-    await Promise.all([getUpcoming(), getNowPlaying(), getTrending()]);
-    setLoading(false);
-  };
+  const {
+    isRefetching: isRefetchingNowPlaying,
+    isLoading: nowPlayingLoading,
+    data: nowPlayingData,
+  } = useQuery<MovieResponse>(["movies", "nowPlaying"], moviesApi.nowPlaying);
+  const {
+    isRefetching: isRefetchingTrending,
+    isLoading: trendingLoading,
+    data: trendingData,
+  } = useQuery<MovieResponse>(["movies", "trending"], moviesApi.trending);
+  const {
+    isRefetching: isRefetchingUpcoming,
+    isLoading: upcomingLoading,
+    data: upcomingData,
+  } = useQuery<MovieResponse>(["movies", "upcoming"], moviesApi.upcoming);
 
   const onRefresh = async () => {
-    setRefreshing(true);
-    await getData();
-    setRefreshing(false);
+    queryClient.refetchQueries(["movies"]);
   };
 
-  useEffect(() => {
-    getData();
-  }, []);
-
+  const refreshing =
+    isRefetchingNowPlaying || isRefetchingTrending || isRefetchingUpcoming;
+  const loading = nowPlayingLoading || trendingLoading || upcomingLoading;
   return loading ? (
     <Loader>
       <ActivityIndicator size="large" />
     </Loader>
-  ) : (
-    <Container
-      refreshControl={
-        <RefreshControl onRefresh={onRefresh} refreshing={refreshing} />
-      }
+  ) : upcomingData ? (
+    <FlatList
+      refreshing={refreshing}
+      onRefresh={onRefresh}
       style={{ backgroundColor: "#1e272e" }}
-    >
-      <Swiper
-        loop
-        autoplay
-        autoplayTimeout={3.5}
-        showsButtons={false}
-        showsPagination={false}
-        containerStyle={{
-          marginBottom: 30,
-          width: "100%",
-          height: SCREEN_HEIGHT / 3,
-        }}
-      >
-        {nowPlaying.map((movie) => (
-          <Slide
-            key={movie.id}
-            backdropPath={movie.backdrop_path}
-            posterPath={movie.poster_path}
-            originalTitle={movie.original_title}
-            overview={movie.overview}
-          />
-        ))}
-      </Swiper>
-      <ListTitle>Trending Movies</ListTitle>
-      <TrendingScroll
-        contentContainerStyle={{ paddingLeft: 30 }}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-      >
-        {trending.map((movie) => (
-          <TrendingMovie key={movie.id}>
-            <Poster path={movie.poster_path} />
+      ListHeaderComponent={
+        <>
+          <Swiper
+            loop
+            autoplay
+            autoplayTimeout={3.5}
+            showsButtons={false}
+            showsPagination={false}
+            containerStyle={{
+              marginBottom: 30,
+              width: "100%",
+              height: SCREEN_HEIGHT / 3,
+            }}
+          >
+            {nowPlayingData?.results.map((movie) => (
+              <Slide
+                key={movie.id}
+                backdropPath={movie.backdrop_path || ""}
+                posterPath={movie.poster_path || ""}
+                originalTitle={movie.original_title}
+                overview={movie.overview}
+              />
+            ))}
+          </Swiper>
+          <ListTitle>Trending Movies</ListTitle>
+          {trendingData ? (
+            <FlatList
+              style={{ marginTop: 20, marginBottom: 40 }}
+              data={trendingData.results}
+              keyExtractor={(item) => item.id + ""}
+              horizontal
+              contentContainerStyle={{ paddingLeft: 30 }}
+              showsHorizontalScrollIndicator={false}
+              renderItem={({ item }) => (
+                <TrendingMovie>
+                  <Poster path={item.poster_path || ""} />
+                  <Title>
+                    {item.original_title.slice(0, 13)}
+                    {item.original_title.length > 13 ? "..." : null}
+                  </Title>
+                </TrendingMovie>
+              )}
+            />
+          ) : null}
+          <ListTitle>Upcoming Movies</ListTitle>
+        </>
+      }
+      data={upcomingData.results}
+      keyExtractor={(item) => item.id + ""}
+      showsHorizontalScrollIndicator={false}
+      renderItem={({ item }) => (
+        <UpcomingMovie>
+          <Poster path={item.poster_path || ""} />
+          <UpcomingColumn>
             <Title>
-              {movie.original_title.slice(0, 13)}
-              {movie.original_title.length > 13 ? "..." : null}
+              {item.original_title.slice(0, 15)}
+              {item.original_title.length > 15 ? "..." : null}
             </Title>
-          </TrendingMovie>
-        ))}
-      </TrendingScroll>
-      <ListTitle>Upcoming Movies</ListTitle>
-      <UpcomingScroll showsHorizontalScrollIndicator={false}>
-        {upcoming.map((movie) => (
-          <UpcomingMovie key={movie.id}>
-            <Poster path={movie.poster_path} />
-            <UpcomingColumn>
-              <Title>
-                {movie.original_title.slice(0, 15)}
-                {movie.original_title.length > 15 ? "..." : null}
-              </Title>
-              <Release></Release>
-              <Content>{movie.overview.slice(0, 100)}...</Content>
-            </UpcomingColumn>
-          </UpcomingMovie>
-        ))}
-      </UpcomingScroll>
-    </Container>
-  );
+            <Release></Release>
+            <Content>{item.overview.slice(0, 100)}...</Content>
+          </UpcomingColumn>
+        </UpcomingMovie>
+      )}
+    />
+  ) : null;
 };
 
 export default Movie;

@@ -5,7 +5,7 @@ const Search = () => (
   <TouchableOpacity
     style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
   >
-    <Text>Search but change theme</Text>
+    <Text>Search</Text>
   </TouchableOpacity>
 );
 

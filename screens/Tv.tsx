@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, ActivityIndicator } from "react-native";
 import { FlatList, ScrollView } from "react-native-gesture-handler";
 import styled from "styled-components/native";
@@ -24,6 +24,7 @@ const HSeparator = styled.View`
 `;
 
 const Tv = () => {
+  const [refreshing, setRefresh] = useState(false);
   const queryClient = useQueryClient();
   const {
     data: trendingData,
@@ -31,7 +32,9 @@ const Tv = () => {
     isRefetching: isRefetchingTrending,
   } = useQuery(["tv", "trending"], tvApi.trending);
   const onRefresh = async () => {
-    queryClient.refetchQueries(["tv"]);
+    setRefresh(true);
+    await queryClient.refetchQueries(["tv"]);
+    setRefresh(false);
   };
   const {
     data: todayData,
@@ -45,8 +48,6 @@ const Tv = () => {
   } = useQuery(["tv", "top"], tvApi.topRated);
 
   const loading = isLoadingTredning || isLoadingToday || isLoadingTop;
-  const refreshing =
-    isRefetchingTrending || isRefetchingTop || isRefetchingToday;
   return loading ? (
     <Loader>
       <ActivityIndicator size="large" />

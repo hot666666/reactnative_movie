@@ -10,10 +10,10 @@ import {
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Slide from "../components/Slide";
 import Poster from "../components/Poster";
-import { useQueryClient, useQuery } from "react-query";
+import { useQueryClient, useQuery, useInfiniteQuery } from "react-query";
 import { MovieResponse, moviesApi } from "../api";
 
-const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+export const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const Loader = styled.View`
   flex: 1;
@@ -65,30 +65,31 @@ const Content = styled.Text`
 const Release = styled.Text``;
 
 const Movie: React.FC<NativeStackScreenProps<any, "Movie">> = () => {
+  const [refreshing, setRefresh] = useState(false);
   const queryClient = useQueryClient();
   const isDark = true; //useColorSchema()==="dark";
+  const { isLoading: nowPlayingLoading, data: nowPlayingData } =
+    useQuery<MovieResponse>(["movies", "nowPlaying"], moviesApi.nowPlaying);
+  const { isLoading: trendingLoading, data: trendingData } =
+    useQuery<MovieResponse>(["movies", "trending"], moviesApi.trending);
   const {
-    isRefetching: isRefetchingNowPlaying,
-    isLoading: nowPlayingLoading,
-    data: nowPlayingData,
-  } = useQuery<MovieResponse>(["movies", "nowPlaying"], moviesApi.nowPlaying);
-  const {
-    isRefetching: isRefetchingTrending,
-    isLoading: trendingLoading,
-    data: trendingData,
-  } = useQuery<MovieResponse>(["movies", "trending"], moviesApi.trending);
-  const {
-    isRefetching: isRefetchingUpcoming,
     isLoading: upcomingLoading,
     data: upcomingData,
-  } = useQuery<MovieResponse>(["movies", "upcoming"], moviesApi.upcoming);
+    hasNextPage,
+    fetchNextPage,
+  } = useInfiniteQuery(["movies", "upcoming"], moviesApi.upcoming, {
+    getNextPageParam: (currentPage) => {
+      const nextPage = currentPage.page + 1;
+      return nextPage > currentPage.total_pages ? null : nextPage;
+    },
+  });
 
   const onRefresh = async () => {
-    queryClient.refetchQueries(["movies"]);
+    setRefresh(true);
+    await queryClient.refetchQueries(["movies"]);
+    setRefresh(false);
   };
 
-  const refreshing =
-    isRefetchingNowPlaying || isRefetchingTrending || isRefetchingUpcoming;
   const loading = nowPlayingLoading || trendingLoading || upcomingLoading;
   return loading ? (
     <Loader>
@@ -96,6 +97,11 @@ const Movie: React.FC<NativeStackScreenProps<any, "Movie">> = () => {
     </Loader>
   ) : upcomingData ? (
     <FlatList
+      onEndReached={() => {
+        if (hasNextPage) {
+          fetchNextPage();
+        }
+      }}
       refreshing={refreshing}
       onRefresh={onRefresh}
       style={{ backgroundColor: "#1e272e" }}
@@ -146,7 +152,7 @@ const Movie: React.FC<NativeStackScreenProps<any, "Movie">> = () => {
           <ListTitle>Upcoming Movies</ListTitle>
         </>
       }
-      data={upcomingData.results}
+      data={upcomingData.pages.map((page) => page.results).flat()}
       keyExtractor={(item) => item.id + ""}
       showsHorizontalScrollIndicator={false}
       renderItem={({ item }) => (
@@ -154,11 +160,11 @@ const Movie: React.FC<NativeStackScreenProps<any, "Movie">> = () => {
           <Poster path={item.poster_path || ""} />
           <UpcomingColumn>
             <Title>
-              {item.original_title.slice(0, 15)}
+              {item ? item.original_title.slice(0, 15) : null}
               {item.original_title.length > 15 ? "..." : null}
             </Title>
             <Release></Release>
-            <Content>{item.overview.slice(0, 100)}...</Content>
+            <Content>{item ? item.overview.slice(0, 100) : null}...</Content>
           </UpcomingColumn>
         </UpcomingMovie>
       )}
@@ -167,3 +173,13 @@ const Movie: React.FC<NativeStackScreenProps<any, "Movie">> = () => {
 };
 
 export default Movie;
+
+/*{
+"pageParams": [undefined],
+"pages": [
+  {"dates": [Object], "page": 1, "results": [Array], "total_pages": 18, "total_results": 348}
+  {"dates": [Object], "page": 2, "results": [Array], "total_pages": 18, "total_results": 348}
+  {"dates": [Object], "page": 3, "results": [Array], "total_pages": 18, "total_results": 348}
+  {"dates": [Object], "page": 4, "results": [Array], "total_pages": 18, "total_results": 348}
+  ]
+}*/

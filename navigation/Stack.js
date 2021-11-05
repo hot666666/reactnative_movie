@@ -1,42 +1,28 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { Text, View, TouchableOpacity } from "react-native";
-
-const ScreenOne = ({ navigation: { navigate } }) => (
-  <View>
-    <TouchableOpacity onPress={() => navigate("two")}>
-      <Text>one</Text>
-    </TouchableOpacity>
-  </View>
-);
-const ScreenTwo = ({ navigation: { navigate } }) => (
-  <View>
-    <TouchableOpacity onPress={() => navigate("three")}>
-      <Text>two</Text>
-    </TouchableOpacity>
-  </View>
-);
-const ScreenThree = ({ navigation: { goBack, setOptions, navigate } }) => (
-  <View>
-    <TouchableOpacity onPress={() => goBack()}>
-      <Text>three</Text>
-    </TouchableOpacity>
-    <TouchableOpacity onPress={() => setOptions({ title: "changed!" })}>
-      <Text>title</Text>
-    </TouchableOpacity>
-    <TouchableOpacity onPress={() => navigate("Tabs", { screen: "Search" })}>
-      <Text>title</Text>
-    </TouchableOpacity>
-  </View>
-);
+import { Detail } from "../screens/Detail";
 
 const NativeStack = createNativeStackNavigator();
+const isDark = true;
 
 const Stack = () => (
-  <NativeStack.Navigator screenOptions={{ headerBackTitleVisible: false }}>
-    <NativeStack.Screen name="one" component={ScreenOne} />
-    <NativeStack.Screen name="two" component={ScreenTwo} />
-    <NativeStack.Screen name="three" component={ScreenThree} />
+  <NativeStack.Navigator
+    screenContainerStyle={{ backgroundColor: isDark ? "#1e272e" : "white" }}
+    screenOptions={{
+      tabBarStyle: {
+        backgroundColor: isDark ? "#1e272e" : "white",
+      },
+      tabBarActiveTintColor: isDark ? "#f1c40f" : "black",
+      tabBarInactiveTintColor: isDark ? "#7f8c8d" : "#95a5a6",
+      headerStyle: {
+        backgroundColor: isDark ? "#1e272e" : "white",
+      },
+      headerTitleStyle: {
+        color: isDark ? "white" : "black",
+      },
+    }}
+  >
+    <NativeStack.Screen name="Detail" component={Detail} />
   </NativeStack.Navigator>
 );
 
